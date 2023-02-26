@@ -59,7 +59,7 @@ DefaultConfig = {
         "ArmLockFixInterval": 0.7,
         "ArmLockFixDuration": 0.02,
 
-        "VerticalMovement": True,
+        "VerticalMovement": False,
         "VerticalMovementSpeed": 0.1,
 }
 
