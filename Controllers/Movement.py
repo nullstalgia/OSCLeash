@@ -87,7 +87,7 @@ class MovementController:
         try:
             queueData = await self.movement_input.receive()
             leashData = queueData['LeashActions']
-            if self.config['TurningEnabled']:
+            if self.config['TurningEnabled'] and leashData['stretch'] > self.config['WalkDeadzone']:
                 turn = self.calculateTurn(leashData)
             else:
                 turn = 0.0
