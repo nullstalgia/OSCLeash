@@ -8,10 +8,10 @@ from timing_util import timing
 from trio import MemorySendChannel, MemoryReceiveChannel, WouldBlock
 from pprint import pprint
 #import heartrate; heartrate.trace(browser=True)
-DIRECTION_VECTORS = {'North': (0, 0, 1),
-                     'South': (0, 0, -1),
-                     'East': (1, 0, 0),
-                     'West': (-1, 0, 0)}                    
+DIRECTION_VECTORS = {'north': (0, 0, 1),
+                     'south': (0, 0, -1),
+                     'east': (1, 0, 0),
+                     'west': (-1, 0, 0)}                    
 
 ZERO_BUNDLE = [
                ("/input/Vertical", 0.0),
@@ -78,9 +78,12 @@ class MovementController:
                 
     def calculateTurn(self, leashData):
         try:
-            leashCardinal = leashData['active-leashes'][-1].split('_')[1]
+            leashCardinal = leashData['active-leashes'][-1].split('_')[-1]
+            leashCardinal = leashCardinal.lower()
+            if leashCardinal not in DIRECTION_VECTORS.keys():
+                raise Exception
         except:
-            leashCardinal = 'North'
+            leashCardinal = 'north'
         return self.proportionalTurn(leashData['vector-raw'], self.config['TurningKp'], leashCardinal)
     
     async def sendMovement(self):
@@ -126,7 +129,7 @@ class MovementController:
             #openvr.VRChaperoneSetup().showWorkingSetPreview()
 
     @staticmethod
-    def proportionalTurn(current_vector, kp=1, direction='North'):
+    def proportionalTurn(current_vector, kp=1, direction='north'):
         target_direction = DIRECTION_VECTORS[direction]
         
         #thanks ChatGPT <3
@@ -135,13 +138,13 @@ class MovementController:
             return 0
         current_direction = (current_vector[0]/norm, current_vector[1]/norm, current_vector[2]/norm)
         
-        if direction == 'North':
+        if direction == 'north':
             error_vector = (current_direction[0] - target_direction[0])
-        elif direction == 'South':
+        elif direction == 'south':
             error_vector = -(current_direction[0] - target_direction[0])
-        elif direction == 'East':
+        elif direction == 'east':
             error_vector = (current_direction[2] - target_direction[2])
-        elif direction == 'West':
+        elif direction == 'west':
             error_vector = -(current_direction[2] - target_direction[2])    
         
         return kp * error_vector
