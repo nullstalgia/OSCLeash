@@ -118,10 +118,10 @@ class LeashActions:
 
         if disabled:
             self.activeLeashes.clear()
-            self.updateGrabbed(address, True)
+            await self.updateGrabbed(address, True)
         else:
             self.activeLeashes.clear()
-            self.updateGrabbed(address, False)
+            await self.updateGrabbed(address, False)
      
     def combinedVector(self, raw=False):
         rawVector = [self.clamp(x)-self.clamp(y) for x,y in zip(self.posVector, self.negVector)]
