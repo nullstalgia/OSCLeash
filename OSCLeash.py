@@ -76,7 +76,8 @@ class App():
                 # if config['Logging']:
                 #     print(f" Debug Print: {values}") # Debug print of gui values
                 if len(values['active-leashes']):
-                    self.window['leash-name'].update(values['active-leashes'][-1])
+                    #self.window['leash-name'].update(values['active-leashes'][-1])
+                    self.window['leash-name'].update(", ".join(values['active-leashes']))
                 else:
                     self.window['leash-name'].update("None")
                 self.window['leash-x'].update(values['vector'][0])

@@ -18,7 +18,6 @@ class LeashActions:
         self.scale = self.config['ScaleDefault']
         self.lastAvatar = None
         self.isDisabled = self.config['DisableInverted']
-        self.maxQ = 20
         self.lastSentTime = 0
 
     async def updateDirectional(self, address: str, magnitude: float):
@@ -42,6 +41,11 @@ class LeashActions:
             if time.time() - self.lastSentTime > self.config['ActiveDelay']:
                 self.lastSentTime = time.time()
                 await self.sendUpdate()
+        elif self.isGrabbed and self.isDisabled:
+            self.stretch = 0.0
+            self.posVector = [0.0,0.0,0.0]
+            self.negVector = [0.0,0.0,0.0]
+            await self.sendUpdate()
 
     async def updateStretch(self, address: str, magnitude: float):
         if self.isGrabbed and not self.isDisabled:
@@ -116,12 +120,12 @@ class LeashActions:
 
         self.isDisabled = disabled
 
-        if disabled:
-            self.activeLeashes.clear()
-            await self.updateGrabbed(address, True)
-        else:
-            self.activeLeashes.clear()
-            await self.updateGrabbed(address, False)
+        # if disabled:
+        #     self.activeLeashes.clear()
+        #     await self.updateGrabbed(address, True)
+        # else:
+        #     self.activeLeashes.clear()
+        #     await self.updateGrabbed(address, False)
      
     def combinedVector(self, raw=False):
         rawVector = [self.clamp(x)-self.clamp(y) for x,y in zip(self.posVector, self.negVector)]

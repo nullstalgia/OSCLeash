@@ -30,12 +30,13 @@ DefaultConfig = {
         "TurningKp": 0.5,
 
         "XboxJoystickMovement": False,
-        "BringGameToFront": False,
+        "BringGameToFront": True,
         "GameTitle": "VRChat",
 
         "PhysboneParameters":
         [
-                "Leash"
+                "Leash",
+                "Leash_North"
         ],
 
         "DirectionalParameters":
@@ -52,8 +53,8 @@ DefaultConfig = {
         "DisableInverted": False,
 
         "ScaleSlowdownEnabled": True,
-        "ScaleParameter": "Go/ScaleFloat",
-        "ScaleDefault": 0.25,
+        "ScaleParameter": "ScaleFactor",
+        "ScaleDefault": 1.0,
 
         "ArmLockFix": True,
         "ArmLockFixInterval": 0.7,
