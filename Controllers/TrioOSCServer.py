@@ -15,6 +15,12 @@ class TrioOSCServer:
                                 trio.socket.SOCK_DGRAM)
         await sock.bind((self.ip, self.port))
         while True:
-            data, addr = await sock.recvfrom(1024)
+            try:
+                data, addr = await sock.recvfrom(4096)
+            except OSError:
+                # Just discard the malformed packet and move on
+                await trio.sleep(0)
+                continue
+
             await self.datagram_received(data, addr)
             await trio.sleep(0)

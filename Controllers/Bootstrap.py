@@ -83,7 +83,11 @@ AppManifest = {
 
 # From https://stackoverflow.com/a/42615559
 # determine if application is a script file or frozen exe
-if getattr(sys, 'frozen', False):
+
+def is_frozen():
+    return getattr(sys, 'frozen', False)
+
+if is_frozen():
     application_path = os.path.dirname(sys.executable)
 else:
     application_path = os.path.dirname(os.path.abspath(__file__+"/.."))
@@ -103,31 +107,71 @@ def combineJson(defaults: dict, config: dict):
                 wasConfigMalformed = True
     return config, wasConfigMalformed
 
-def setup_openvr():
+def setup_openvr(config: dict | None = None) -> bool:
     # Import openvr if user wants to autostart the app with SteamVR
     # if config["StartWithSteamVR"]: We don't need an if, this was called in an if.
     try:
         import openvr
         # Setting this to Overlay will start SteamVR, which sucks when testing stuff in just Unity
         vr = openvr.init(openvr.VRApplication_Utility)
+
+        manifest_path = os.path.abspath(f"{application_path}\\manifest.vrmanifest")
+
+        if is_frozen():
+            # Set the binary path to the current executable name
+            AppManifest["applications"][0]["binary_path_windows"] = "./"+os.path.basename(sys.executable)
+
         # Create an IVRApplications object
         applications = openvr.IVRApplications()
 
-        # Save AppManifest to manifest.vrmanifest
-        with open(f"{application_path}\\manifest.vrmanifest", "w") as f:
-            f.write(json.dumps(AppManifest, indent=2))
+        # Check if the manifest is already registered with SteamVR
+        # Also check if we're a one-file app. We don't want to make changes if we're just running from source
+        manifest_registered = applications.isApplicationInstalled(AppManifest["applications"][0]["app_key"])
+        if manifest_registered and is_frozen():
+            # And if it is, and it's not where we expect it to be, remove it
+            existing_manifest_path = applications.getApplicationPropertyString(AppManifest["applications"][0]["app_key"], openvr.VRApplicationProperty_WorkingDirectory_String)
+            existing_manifest_path = os.path.abspath(f"{existing_manifest_path}\\manifest.vrmanifest")
+            if existing_manifest_path != manifest_path:
+                print("Manifest path is not where we expect it to be, removing it...")
+                applications.removeApplicationManifest(existing_manifest_path)
+                manifest_registered = False
 
-        # Register the manifest file's absolute path with SteamVR
-        manifest_path = os.path.abspath(f"{application_path}\\manifest.vrmanifest")
-        error = openvr.EVRFirmwareError()
-        applications.addApplicationManifest(manifest_path, False)
-        #applications.removeApplicationManifest(manifest_path)
-        if error.value != 0:
-            print("Error adding manifest: ", error)
-        else:
-            applications.setApplicationAutoLaunch(AppManifest["applications"][0]["app_key"], True)
-            print("Manifest added successfully")
-            # Set the application to start automatically when SteamVR starts
+
+            # Other check to make, is if the binary path is the same as the one we're running from
+            if manifest_registered:
+                existing_binary_path = applications.getApplicationPropertyString(AppManifest["applications"][0]["app_key"], openvr.VRApplicationProperty_BinaryPath_String)
+                existing_binary_path = os.path.abspath(existing_binary_path)
+                current_binary_path = os.path.abspath(sys.executable)
+
+                if existing_binary_path != current_binary_path:
+                    print("Binary path is not where we expect it to be, removing manifest from SteamVR...")
+                    applications.removeApplicationManifest(existing_manifest_path)
+                    manifest_registered = False
+
+            # And just in case the user just has it turned off, let's remove it
+            if manifest_registered:
+                if config is not None and not config["StartWithSteamVR"]:
+                    print("Removing manifest from SteamVR because Autostart was disabled in config...")
+                    applications.removeApplicationManifest(existing_manifest_path)
+                    manifest_registered = False
+
+        # If the manifest is not registered, and the user wants to autostart with SteamVR, register it
+        if config is not None and config["StartWithSteamVR"] and not manifest_registered and is_frozen():
+            # Save AppManifest to manifest.vrmanifest
+            with open(manifest_path, "w") as f:
+                f.write(json.dumps(AppManifest, indent=2))
+
+            # Register the manifest file's absolute path with SteamVR
+            error = openvr.EVRFirmwareError()
+            applications.addApplicationManifest(manifest_path, False)
+            #applications.removeApplicationManifest(manifest_path)
+            if error.value != 0:
+                print("Error adding manifest: ", error)
+            else:
+                # Set the application to start automatically when SteamVR starts
+                applications.setApplicationAutoLaunch(AppManifest["applications"][0]["app_key"], True)
+                print("App Manifest added to SteamVR successfully!")
+                manifest_registered = True
 
         # Listen for the event that SteamVR is shutting down
         # This is a blocking call, so it will wait here until SteamVR shuts down
@@ -136,6 +180,11 @@ def setup_openvr():
         #    if vr.pollNextEvent(event):
         #        if event.eventType == openvr.VREvent_Quit:
         #            break
+
+        if manifest_registered:
+            if applications.getApplicationAutoLaunch(AppManifest["applications"][0]["app_key"]):
+                print(f"{Fore.YELLOW}You have OSCLeash set to launch with SteamVR.")
+                print(f"You may want to disable it in the Config.json and use VRCX's auto-launch feature instead.{Fore.RESET}")
         return True
     except Exception as e:
         print(Fore.RED + f'Error: {e}\nWarning: Was not able to import openvr!' + Fore.RESET)
@@ -177,7 +226,7 @@ def bootstrap(configPath = f"{application_path}\\Config.json") -> dict:
                 print(Fore.RED + 'Malformed config file. Loading default values.' + Fore.RESET)
                 print("Your config file has been backed up to " + f"{oldConfigPath}\n")
                 time.sleep(2)
-            return config, setup_openvr()
+            return config, setup_openvr(config)
         except Exception as e: #Catch a malformed config file.
             print(Fore.RED + 'Malformed config file. Loading default values.' + Fore.RESET)
             print(e,"was the exception\n")
@@ -188,10 +237,7 @@ def bootstrap(configPath = f"{application_path}\\Config.json") -> dict:
 def printInfo(config):
     print(Fore.GREEN + 'OSCLeash is Running!' + Fore.RESET)
 
-    if config['IP'] == "127.0.0.1":
-        print("IP: Localhost")
-    else:
-        print("IP: Not Localhost? Wack.")
+    print(f"IP: {config['IP']}")
 
     print(f"Listening on port {config['ListeningPort']}\nSending on port {config['SendingPort']}")
     print("Delays of {:.0f}".format(config['ActiveDelay']*1000),"& {:.0f}".format(config['InactiveDelay']*1000),"ms")
